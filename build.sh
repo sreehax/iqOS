@@ -1,4 +1,8 @@
 #!/bin/bash
+if [ `whoami` != root ]; then
+	echo "root permissions required";
+	exit
+fi
 source functions.sh
 # DEFINITIONS
 export KERNEL_VERSION=4.20
