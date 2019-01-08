@@ -41,10 +41,10 @@ buildbusybox() {
 }
 packer() {
 	cd $TOP
-	mkdir -p work/rootfs
-	cd work/rootfs
+	mkdir -p work/initrd
+	cd work/initrd
 	rm -rf *
-	mkdir dev sys proc lib bin sbin usr usr/bin usr/sbin etc
+	mkdir dev sys proc lib bin sbin usr usr/bin usr/sbin etc tmp mnt mnt/boot mnt/roroot mnt/root
 	ln -s lib lib64
 	ln -s ../lib usr/lib
 	ln -s ../lib usr/lib64
@@ -52,12 +52,14 @@ packer() {
 	chroot . /bin/busybox --install -s
 	rm linuxrc
 	cd ../linux
-	make modules_install INSTALL_MOD_PATH=`realpath ../rootfs`
-	cd ../rootfs
-	cp ../../files/welcome etc/
-	cp ../../files/init .
+	make modules_install INSTALL_MOD_PATH=`realpath ../initrd`
+	cd ../initrd
+	cp ../../files/initrd-init ./init
 	chmod +x init
 	find . | cpio -H newc -o | gzip > ../out/initrd.img
+	cd ..
+	rm -rf out/fs.squash
+	mksquashfs initrd out/fs.squash
 }
 buildiso() {
 	cd $TOP
@@ -65,12 +67,11 @@ buildiso() {
 	cd work/efidir
 	rm -rf *
 	cd $TOP
-	dd bs=1M count=32 if=/dev/zero of=work/out/efi.img
+	dd bs=500K count=5 if=/dev/zero of=work/out/efi.img
 	mkfs.vfat work/out/efi.img
 	mount -t vfat work/out/efi.img work/efidir
 	cd work/efidir
 	mkdir -p EFI/BOOT boot/grub
-	cp ../out/vmlinuz ../out/initrd.img boot/
 	cp ../../files/*.EFI EFI/BOOT/
 	cp ../../files/grub.cfg boot/grub
 	cd ..
@@ -83,5 +84,8 @@ buildiso() {
 	cp -r ../out/efi.img .
 	mkdir boot
 	cp ../out/vmlinuz ../out/initrd.img boot/
-	xorriso -as mkisofs -isohybrid-mbr ../../files/isohdpfx.bin -c isolinux/boot.cat -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -e efi.img -no-emul-boot -isohybrid-gpt-basdat -o $TOP/linux.iso  .
+	cp ../out/fs.squash .
+	touch iqOS
+	xorriso -as mkisofs -isohybrid-mbr ../../files/isohdpfx.bin -V iqOS -c isolinux/boot.cat -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -e efi.img -no-emul-boot -isohybrid-gpt-basdat -o $TOP/linux.iso  .
+	cd $TOP
 }
